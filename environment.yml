@@ -1,0 +1,17 @@
+name: microEUKscope
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  - python=3.10
+  - tiara
+  - kaiju
+  - krona
+  - seqkit
+  - eukrep
+  - pigz
+  - coreutils
+  - gawk
+  - grep
+  - sed
