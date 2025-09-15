@@ -21,8 +21,8 @@ export SAMPLE_LIST="${SAMPLE_LIST:-sample_list}"  # one SAMPLE id per line, no h
 export PROJECT_DIR="${PROJECT_DIR:-/path/to/project}"
 export CONTIGS_DIR="${CONTIGS_DIR:-/path/to/min500}"     # contains files like ${SAMPLE}*.fa|*.fasta[.gz]
 export OUTPUT_DIR="${OUTPUT_DIR:-${PROJECT_DIR}/output}" # per-sample working
-export STATS_DIR="${STATS_DIR:-${PROJECT_DIR}/stats}"
-export SUMMARY_DIR="${SUMMARY_DIR:-${OUTPUT_DIR}/summary}"
+export STATS_DIR="${STATS_DIR:-${PROJECT_DIR}/stats}"    # (not used for writes anymore)
+export SUMMARY_DIR="${SUMMARY_DIR:-${OUTPUT_DIR}/summary}"  # all stats + krona, etc.
 
 # Tools (from the conda/mamba env PATH)
 export SEQKIT_BIN="${SEQKIT_BIN:-seqkit}"
@@ -65,14 +65,21 @@ PIPELINE_MAIL_TYPE="${PIPELINE_MAIL_TYPE:-}"       # e.g. ALL, BEGIN, END, FAIL
 PIPELINE_MAIL_USER="${PIPELINE_MAIL_USER:-}"       # your@email
 
 # Ensure output dirs exist
-mkdir -p "${OUTPUT_DIR}" "${SUMMARY_DIR}" "${STATS_DIR}"
+mkdir -p "${OUTPUT_DIR}" "${SUMMARY_DIR}"
 
 ###############################################################################
 # Portable env activation snippet (exported so the job can eval it)
 # (Looks for 'microEUKscope' env by default; override with CONDA_ENV_ALL)
 ###############################################################################
 read -r -d '' _ACTIVATE_ENV_SNIPPET <<"__ACTIVATE__"
-# --- portable conda/micromamba activation ---
+# --- load site modules if requested (e.g. PDC & miniconda on Dardel) ---
+if [[ -n "${MODULE_LOADS:-}" ]]; then
+  for _m in ${MODULE_LOADS}; do
+    module load "$_m"
+  done
+fi
+
+# --- portable conda/micromamba activation (supports name or prefix path) ---
 ENV_NAME="${CONDA_ENV_ALL:-microEUKscope}"
 if [[ -z "${CONDA_DEFAULT_ENV:-}" || "${CONDA_DEFAULT_ENV}" != "${ENV_NAME}" ]]; then
   if command -v conda >/dev/null 2>&1; then
@@ -94,9 +101,9 @@ fi
 __ACTIVATE__
 export ACTIVATE_ENV_SNIPPET="${_ACTIVATE_ENV_SNIPPET}"
 
-# Normalize EXCLUSIVE flag to either "--exclusive" or empty
+# Normalize EXCLUSIVE flag to either "--exclusive" or empty (avoid set -u issues)
 _EXCLUSIVE_FLAG=""
-if [[ "${PIPELINE_EXCLUSIVE,,}" =~ ^(1|yes|true)$ ]]; then
+if [[ "${PIPELINE_EXCLUSIVE:-}" =~ ^(1|yes|true|TRUE|Yes)$ ]]; then
   _EXCLUSIVE_FLAG="--exclusive"
 fi
 
@@ -163,7 +170,7 @@ SAMPLE="$(sed -n "${SLURM_ARRAY_TASK_ID}p" "${SAMPLE_LIST}")"
 
 # Prepare dirs & logging
 SAMPLE_DIR="${OUTPUT_DIR}/${SAMPLE}"
-mkdir -p "${SAMPLE_DIR}" "${STATS_DIR}" "${SUMMARY_DIR}"
+mkdir -p "${SAMPLE_DIR}" "${SUMMARY_DIR}"
 exec > >(tee -a "${SAMPLE_DIR}/${SAMPLE}.pipeline.run.log") 2>&1
 echo "[`date '+%F %T'`] Start ${SAMPLE}"
 
@@ -221,12 +228,12 @@ safe_cat "${SAMPLE}.tiara_3k.euk.fasta" \
   "mitochondrion_${SAMPLE}.scaffolds.3k.fasta" \
   "plastid_${SAMPLE}.scaffolds.3k.fasta"
 
-"${SEQKIT_BIN}" stats -a "${SAMPLE}.tiara_3k.euk.fasta" | sed -e '1d' > "${STATS_DIR}/${SAMPLE}.3k_tiara.scaffolds.stats.tsv"
+"${SEQKIT_BIN}" stats -a "${SAMPLE}.tiara_3k.euk.fasta" | sed -e '1d' > "${SUMMARY_DIR}/${SAMPLE}.3k_tiara.scaffolds.stats.tsv"
 
 # S500 bin
 echo "[`date '+%F %T'`] Build S500 bin"
 "${SEQKIT_BIN}" seq -m "${BIN_S500_MIN}" -M "${BIN_S500_MAX}" "${SRC_CONTIGS}" > "${SAMPLE}.scaffolds.S500.fasta"
-"${SEQKIT_BIN}" stats -a "${SAMPLE}.scaffolds.S500.fasta" | sed -e '1d' > "${STATS_DIR}/${SAMPLE}.S500.scaffolds.stats.tsv"
+"${SEQKIT_BIN}" stats -a "${SAMPLE}.scaffolds.S500.fasta" | sed -e '1d' > "${SUMMARY_DIR}/${SAMPLE}.S500.scaffolds.stats.tsv"
 
 echo "[`date '+%F %T'`] Tiara S500"
 tiara -i "${SAMPLE}.scaffolds.S500.fasta" -o "${SAMPLE}.out500.txt" -t "${TIARA_THREADS}" -m "${BIN_S500_MIN}" --tf "${TIARA_TF}"
@@ -235,14 +242,14 @@ safe_cat "${SAMPLE}.tiara_S500.euk.fasta" \
   "eukarya_${SAMPLE}.scaffolds.S500.fasta" \
   "mitochondrion_${SAMPLE}.scaffolds.S500.fasta" \
   "plastid_${SAMPLE}.scaffolds.S500.fasta"
-"${SEQKIT_BIN}" stats -a "${SAMPLE}.tiara_S500.euk.fasta" | sed -e '1d' > "${STATS_DIR}/${SAMPLE}.S500_euk.stats.tsv"
+"${SEQKIT_BIN}" stats -a "${SAMPLE}.tiara_S500.euk.fasta" | sed -e '1d' > "${SUMMARY_DIR}/${SAMPLE}.S500_euk.stats.tsv"
 
 safe_cat "${SAMPLE}.tiara_S500.non-euk.fasta" \
   "archaea_${SAMPLE}.scaffolds.S500.fasta" \
   "bacteria_${SAMPLE}.scaffolds.S500.fasta" \
   "prokarya_${SAMPLE}.scaffolds.S500.fasta" \
   "unknown_${SAMPLE}.scaffolds.S500.fasta"
-"${SEQKIT_BIN}" stats -a "${SAMPLE}.tiara_S500.non-euk.fasta" | sed -e '1d' > "${STATS_DIR}/${SAMPLE}.S500_non-euk.stats.tsv"
+"${SEQKIT_BIN}" stats -a "${SAMPLE}.tiara_S500.non-euk.fasta" | sed -e '1d' > "${SUMMARY_DIR}/${SAMPLE}.S500_non-euk.stats.tsv"
 
 rm -f "${SAMPLE}.scaffolds.S500.fasta" \
       "eukarya_${SAMPLE}.scaffolds.S500.fasta" "mitochondrion_${SAMPLE}.scaffolds.S500.fasta" "plastid_${SAMPLE}.scaffolds.S500.fasta" \
@@ -251,7 +258,7 @@ rm -f "${SAMPLE}.scaffolds.S500.fasta" \
 # S1000 bin
 echo "[`date '+%F %T'`] Build S1000 bin"
 "${SEQKIT_BIN}" seq -m "${BIN_S1000_MIN}" -M "${BIN_S1000_MAX}" "${SRC_CONTIGS}" > "${SAMPLE}.scaffolds.S1000.fasta"
-"${SEQKIT_BIN}" stats -a "${SAMPLE}.scaffolds.S1000.fasta" | sed -e '1d' > "${STATS_DIR}/${SAMPLE}.S1000.scaffolds.stats.tsv"
+"${SEQKIT_BIN}" stats -a "${SAMPLE}.scaffolds.S1000.fasta" | sed -e '1d' > "${SUMMARY_DIR}/${SAMPLE}.S1000.scaffolds.stats.tsv"
 
 echo "[`date '+%F %T'`] Tiara S1000"
 tiara -i "${SAMPLE}.scaffolds.S1000.fasta" -o "${SAMPLE}.out1000.txt" -t "${TIARA_THREADS}" -m "${BIN_S1000_MIN}" --tf "${TIARA_TF}"
@@ -260,14 +267,14 @@ safe_cat "${SAMPLE}.tiara_S1000.euk.fasta" \
   "eukarya_${SAMPLE}.scaffolds.S1000.fasta" \
   "mitochondrion_${SAMPLE}.scaffolds.S1000.fasta" \
   "plastid_${SAMPLE}.scaffolds.S1000.fasta"
-"${SEQKIT_BIN}" stats -a "${SAMPLE}.tiara_S1000.euk.fasta" | sed -e '1d' > "${STATS_DIR}/${SAMPLE}.S1000_euk.stats.tsv"
+"${SEQKIT_BIN}" stats -a "${SAMPLE}.tiara_S1000.euk.fasta" | sed -e '1d' > "${SUMMARY_DIR}/${SAMPLE}.S1000_euk.stats.tsv"
 
 safe_cat "${SAMPLE}.tiara_S1000.non-euk.fasta" \
   "archaea_${SAMPLE}.scaffolds.S1000.fasta" \
   "bacteria_${SAMPLE}.scaffolds.S1000.fasta" \
   "prokarya_${SAMPLE}.scaffolds.S1000.fasta" \
   "unknown_${SAMPLE}.scaffolds.S1000.fasta"
-"${SEQKIT_BIN}" stats -a "${SAMPLE}.tiara_S1000.non-euk.fasta" | sed -e '1d' > "${STATS_DIR}/${SAMPLE}.S1000_non-euk.stats.tsv"
+"${SEQKIT_BIN}" stats -a "${SAMPLE}.tiara_S1000.non-euk.fasta" | sed -e '1d' > "${SUMMARY_DIR}/${SAMPLE}.S1000_non-euk.stats.tsv"
 
 rm -f "${SAMPLE}.scaffolds.S1000.fasta" \
       "eukarya_${SAMPLE}.scaffolds.S1000.fasta" "mitochondrion_${SAMPLE}.scaffolds.S1000.fasta" "plastid_${SAMPLE}.scaffolds.S1000.fasta" \
@@ -319,7 +326,6 @@ rm -f "${SAMPLE}.euk_contigs"
 safe_cat "${SAMPLE}.01_tiara_kaiju_merged.euk.fasta" \
   "${SAMPLE}.tiara_merged_small_contigs_kaiju_euk.fasta" \
   "${SAMPLE}.tiara_merged.euk.fasta"
-"${SEQKIT_BIN}" stats -a "${SAMPLE}.01_tiara_kaiju_merged.euk.fasta" | sed '1d' > "${STATS_DIR}/${SAMPLE}.01_kaiju_merged_euk.stats.tsv" || true
 
 # 2) Kaiju greedy on merged euk; remove viruses/prok
 kaiju -z "${KAIJU_THREADS}" -t "${KAIJU_NODES}" -f "${KAIJU_FMI}" \
@@ -340,9 +346,9 @@ kaiju2table -t "${KAIJU_NODES}" -n "${KAIJU_NAMES}" -r phylum -p \
   -o "${SAMPLE}.kaiju_new_db_greedy_summary.tsv" \
   "${SAMPLE}.tiara_kaiju_merged.euk.out"
 
-mkdir -p "${SAMPLE_DIR}/summary"
-mv -f "${SAMPLE}.kaiju_new_db_greedy_summary.tsv" "${SAMPLE_DIR}/summary/"
-mv -f "${SAMPLE}.kaiju_new_db_merged-euk.html" "${SAMPLE_DIR}/summary/"
+# Move Kaiju summary artifacts to the global SUMMARY_DIR
+mv -f "${SAMPLE}.kaiju_new_db_greedy_summary.tsv" "${SUMMARY_DIR}/"
+mv -f "${SAMPLE}.kaiju_new_db_merged-euk.html" "${SUMMARY_DIR}/"
 
 grep "Viruses"  "${SAMPLE}_merged-euk.names" > "${SAMPLE}.virus_contigs_greedy" || true
 grep "Bacteria" "${SAMPLE}_merged-euk.names" > "${SAMPLE}.prok1_contigs_greedy" || true
@@ -359,7 +365,6 @@ rm -f "${SAMPLE}.virus_contigs_greedy" "${SAMPLE}.prok_contigs_greedy" "${SAMPLE
 
 "${SEQKIT_BIN}" grep -f "${SAMPLE}.prok_contigs_list_greedy.txt" --invert-match \
   "${SAMPLE}.02_tiara_kaiju_merged.euk-novirus.fasta" > "${SAMPLE}.03_tiara_kaiju_merged.euk-novirus-noprok.fasta"
-"${SEQKIT_BIN}" stats -a "${SAMPLE}.03_tiara_kaiju_merged.euk-novirus-noprok.fasta" | sed '1d' > "${STATS_DIR}/${SAMPLE}.03_euk_novirus_noprok.stats.tsv"
 
 # 3) mem22 cleanup
 kaiju -z "${KAIJU_THREADS}" -t "${KAIJU_NODES}" -f "${KAIJU_FMI}" \
@@ -402,8 +407,6 @@ safe_cat "${SAMPLE}.08_tiara_kaiju_eukrep.euk-pool.fasta" \
   "${SAMPLE}.07_eukrep_balanced1000.euk.fasta" \
   "${SAMPLE}.06_tiara_kaiju_merged.euk-clean_noU.fasta"
 
-"${SEQKIT_BIN}" stats -a "${SAMPLE}.08_tiara_kaiju_eukrep.euk-pool.fasta" | sed '1d' > "${STATS_DIR}/${SAMPLE}.08_final_euk_pool.stats.tsv"
-
 # 5) OPTIONAL taxa subset with slug
 if [[ "${DO_TAXON_SUBSET}" -eq 1 ]]; then
   echo "[`date '+%F %T'`] Taxon subset active: ${TAXON_FILTERS}"
@@ -433,9 +436,19 @@ if [[ "${DO_TAXON_SUBSET}" -eq 1 ]]; then
 
   "${SEQKIT_BIN}" grep -f "${SAMPLE}.${SLUG}_contigs_list.txt" \
     "${SAMPLE}.08_tiara_kaiju_eukrep.euk-pool.fasta" > "${SAMPLE}.09_euk_pool_only_${SLUG}.fasta"
-  "${SEQKIT_BIN}" stats -a "${SAMPLE}.09_euk_pool_only_${SLUG}.fasta" | sed '1d' > "${STATS_DIR}/${SAMPLE}.taxa_only_${SLUG}.stats.tsv"
   echo "[`date '+%F %T'`] Taxa subset saved as: ${SAMPLE}.09_euk_pool_only_${SLUG}.fasta"
 fi
+
+# ---- One-pass stats for ALL Kaiju/EukRep numbered FASTA (01..09) -> SUMMARY_DIR
+echo "[`date '+%F %T'`] Writing seqkit stats for Kaiju/EukRep outputs (01..09) to SUMMARY_DIR"
+shopt -s nullglob
+for f in "${SAMPLE}."[0-9]*.fasta; do
+  [[ -s "$f" ]] || continue
+  bn="$(basename "$f")"                              # e.g., SAMPLE.03_tiara_...
+  out="${SUMMARY_DIR}/${bn%.fasta}.stats.tsv"        # global summary folder
+  "${SEQKIT_BIN}" stats -a "$f" | sed -e '1d' > "$out" || true
+done
+shopt -u nullglob
 
 echo "[`date '+%F %T'`] DONE ${SAMPLE}"
 EOF_JOB
