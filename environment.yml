@@ -4,7 +4,9 @@ channels:
   - bioconda
   - defaults
 dependencies:
-  - python=3.9
+  - python=3.8
+  - numpy=1.19
+  - numba=0.52
   - tiara=1.0.3
   - kaiju
   - krona
