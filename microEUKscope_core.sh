@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -euo pipefail
+#set -euo pipefail
 
 ###############################################################################
 # Load user config (edit config.env, not this script)
@@ -26,9 +26,6 @@ export PROJECT_DIR="${PROJECT_DIR:-/path/to/project}"
 export OUTPUT_DIR="${OUTPUT_DIR:-${PROJECT_DIR}/output}" # per-sample working directory
 export STATS_DIR="${STATS_DIR:-${PROJECT_DIR}/stats}"
 export SUMMARY_DIR="${SUMMARY_DIR:-${OUTPUT_DIR}/summary}" # all stats + krona
-
-# Tools (from the conda/mamba env PATH)
-export SEQKIT_BIN="${SEQKIT_BIN:-seqkit}"
 
 # Tiara
 export TIARA_THREADS="${TIARA_THREADS:-20}"
@@ -139,12 +136,12 @@ process_sample() {
     "eukarya_${SAMPLE}.scaffolds.3k.fasta" \
     "mitochondrion_${SAMPLE}.scaffolds.3k.fasta" \
     "plastid_${SAMPLE}.scaffolds.3k.fasta"
-  "${SEQKIT_BIN}" stats -a "${SAMPLE}.tiara_3k.euk.fasta" | sed '1d' > "${STATS_DIR}/${SAMPLE}.3k_tiara.scaffolds.stats.tsv"
+  seqkit stats -a "${SAMPLE}.tiara_3k.euk.fasta" > "${STATS_DIR}/${SAMPLE}.pipeline.stats.tsv"
 
   # S500 bin
   echo "[`date '+%F %T'`] Build S500 bin"
-  "${SEQKIT_BIN}" seq -m "${BIN_S500_MIN}" -M "${BIN_S500_MAX}" "${SRC_CONTIGS}" > "${SAMPLE}.scaffolds.S500.fasta"
-  "${SEQKIT_BIN}" stats -a "${SAMPLE}.scaffolds.S500.fasta" | sed '1d' > "${STATS_DIR}/${SAMPLE}.S500.scaffolds.stats.tsv"
+  seqkit seq -m "${BIN_S500_MIN}" -M "${BIN_S500_MAX}" "${SRC_CONTIGS}" > "${SAMPLE}.scaffolds.S500.fasta"
+  seqkit stats -a "${SAMPLE}.scaffolds.S500.fasta" | sed '1d' >> "${STATS_DIR}/${SAMPLE}.pipeline.stats.tsv"
 
   tiara -i "${SAMPLE}.scaffolds.S500.fasta" -o "${SAMPLE}.out500.txt" -t "${TIARA_THREADS}" -m "${BIN_S500_MIN}" --tf "${TIARA_TF}"
 
@@ -152,14 +149,14 @@ process_sample() {
     "eukarya_${SAMPLE}.scaffolds.S500.fasta" \
     "mitochondrion_${SAMPLE}.scaffolds.S500.fasta" \
     "plastid_${SAMPLE}.scaffolds.S500.fasta"
-  "${SEQKIT_BIN}" stats -a "${SAMPLE}.tiara_S500.euk.fasta" | sed '1d' > "${STATS_DIR}/${SAMPLE}.S500_euk.stats.tsv"
+  seqkit stats -a "${SAMPLE}.tiara_S500.euk.fasta" | sed '1d' >> "${STATS_DIR}/${SAMPLE}.pipeline.stats.tsv"
 
   safe_cat "${SAMPLE}.tiara_S500.non-euk.fasta" \
     "archaea_${SAMPLE}.scaffolds.S500.fasta" \
     "bacteria_${SAMPLE}.scaffolds.S500.fasta" \
     "prokarya_${SAMPLE}.scaffolds.S500.fasta" \
     "unknown_${SAMPLE}.scaffolds.S500.fasta"
-  "${SEQKIT_BIN}" stats -a "${SAMPLE}.tiara_S500.non-euk.fasta" | sed '1d' > "${STATS_DIR}/${SAMPLE}.S500_non-euk.stats.tsv"
+  seqkit stats -a "${SAMPLE}.tiara_S500.non-euk.fasta" | sed '1d' >> "${STATS_DIR}/${SAMPLE}.pipeline.stats.tsv"
 
   rm -f "${SAMPLE}.scaffolds.S500.fasta" \
         "eukarya_${SAMPLE}.scaffolds.S500.fasta" \
@@ -172,8 +169,8 @@ process_sample() {
 
   # S1000 bin
   echo "[`date '+%F %T'`] Build S1000 bin"
-  "${SEQKIT_BIN}" seq -m "${BIN_S1000_MIN}" -M "${BIN_S1000_MAX}" "${SRC_CONTIGS}" > "${SAMPLE}.scaffolds.S1000.fasta"
-  "${SEQKIT_BIN}" stats -a "${SAMPLE}.scaffolds.S1000.fasta" | sed '1d' > "${STATS_DIR}/${SAMPLE}.S1000.scaffolds.stats.tsv"
+  seqkit seq -m "${BIN_S1000_MIN}" -M "${BIN_S1000_MAX}" "${SRC_CONTIGS}" > "${SAMPLE}.scaffolds.S1000.fasta"
+  seqkit stats -a "${SAMPLE}.scaffolds.S1000.fasta" | sed '1d' >> "${STATS_DIR}/${SAMPLE}.pipeline.stats.tsv"
 
   tiara -i "${SAMPLE}.scaffolds.S1000.fasta" -o "${SAMPLE}.out1000.txt" -t "${TIARA_THREADS}" -m "${BIN_S1000_MIN}" --tf "${TIARA_TF}"
 
@@ -181,14 +178,14 @@ process_sample() {
     "eukarya_${SAMPLE}.scaffolds.S1000.fasta" \
     "mitochondrion_${SAMPLE}.scaffolds.S1000.fasta" \
     "plastid_${SAMPLE}.scaffolds.S1000.fasta"
-  "${SEQKIT_BIN}" stats -a "${SAMPLE}.tiara_S1000.euk.fasta" | sed '1d' > "${STATS_DIR}/${SAMPLE}.S1000_euk.stats.tsv"
+  seqkit stats -a "${SAMPLE}.tiara_S1000.euk.fasta" | sed '1d' >> "${STATS_DIR}/${SAMPLE}.pipeline.stats.tsv"
 
   safe_cat "${SAMPLE}.tiara_S1000.non-euk.fasta" \
     "archaea_${SAMPLE}.scaffolds.S1000.fasta" \
     "bacteria_${SAMPLE}.scaffolds.S1000.fasta" \
     "prokarya_${SAMPLE}.scaffolds.S1000.fasta" \
     "unknown_${SAMPLE}.scaffolds.S1000.fasta"
-  "${SEQKIT_BIN}" stats -a "${SAMPLE}.tiara_S1000.non-euk.fasta" | sed '1d' > "${STATS_DIR}/${SAMPLE}.S1000_non-euk.stats.tsv"
+  seqkit stats -a "${SAMPLE}.tiara_S1000.non-euk.fasta" | sed '1d' >> "${STATS_DIR}/${SAMPLE}.pipeline.stats.tsv"
 
   rm -f "${SAMPLE}.scaffolds.S1000.fasta" \
         "eukarya_${SAMPLE}.scaffolds.S1000.fasta" \
@@ -210,12 +207,14 @@ process_sample() {
     "${SAMPLE}.tiara_S500.non-euk.fasta" \
     "${SAMPLE}.tiara_S1000.non-euk.fasta"
 
-  "${SEQKIT_BIN}" stats -a "${SAMPLE}.tiara_merged.euk.fasta" | sed '1d' > "${STATS_DIR}/${SAMPLE}.tiara_merged.euk.stats.tsv"
-  "${SEQKIT_BIN}" stats -a "${SAMPLE}.tiara_merged_small_contigs.non-euk.fasta" | sed '1d' > "${STATS_DIR}/${SAMPLE}.tiara_merged_small_contigs.non-euk.stats.tsv"
+  seqkit stats -a "${SAMPLE}.tiara_merged.euk.fasta" | sed '1d' >> "${STATS_DIR}/${SAMPLE}.pipeline.stats.tsv"
+  seqkit stats -a "${SAMPLE}.tiara_merged_small_contigs.non-euk.fasta" | sed '1d' >> "${STATS_DIR}/${SAMPLE}.pipeline.stats.tsv"
 
   rm -f "${SAMPLE}.tiara_S500.euk.fasta" "${SAMPLE}.tiara_S1000.euk.fasta" "${SAMPLE}.tiara_3k.euk.fasta" \
         "${SAMPLE}.tiara_S500.non-euk.fasta" "${SAMPLE}.tiara_S1000.non-euk.fasta"
 
+  rm -f "${SAMPLE}.contigs_input.fa"
+  
   ########################
   # KAIJU + EUKREP
   ########################
@@ -235,7 +234,7 @@ process_sample() {
   cut -f 2 "${SAMPLE}.euk_contigs" > "${SAMPLE}.euk_contigs_list.txt" || true
   rm -f "${SAMPLE}.euk_contigs"
 
-  "${SEQKIT_BIN}" grep -f "${SAMPLE}.euk_contigs_list.txt" \
+  seqkit grep -f "${SAMPLE}.euk_contigs_list.txt" \
     "${SAMPLE}.tiara_merged_small_contigs.non-euk.fasta" \
     > "${SAMPLE}.tiara_merged_small_contigs_kaiju_euk.fasta" || true
 
@@ -243,7 +242,7 @@ process_sample() {
   safe_cat "${SAMPLE}.01_tiara_kaiju_merged.euk.fasta" \
     "${SAMPLE}.tiara_merged_small_contigs_kaiju_euk.fasta" \
     "${SAMPLE}.tiara_merged.euk.fasta"
-  "${SEQKIT_BIN}" stats -a "${SAMPLE}.01_tiara_kaiju_merged.euk.fasta" | sed '1d' > "${STATS_DIR}/${SAMPLE}.01_kaiju_merged_euk.stats.tsv"
+  seqkit stats -a "${SAMPLE}.01_tiara_kaiju_merged.euk.fasta" | sed '1d' >> "${STATS_DIR}/${SAMPLE}.pipeline.stats.tsv"
 
   # 2) Kaiju greedy on merged euk; remove viruses/prok
   kaiju -z "${KAIJU_THREADS}" -t "${KAIJU_NODES}" -f "${KAIJU_FMI}" \
@@ -269,13 +268,13 @@ process_sample() {
   cut -f 2 "${SAMPLE}.prok_contigs_greedy"  > "${SAMPLE}.prok_contigs_list_greedy.txt" || true
   rm -f "${SAMPLE}.virus_contigs_greedy" "${SAMPLE}.prok_contigs_greedy" "${SAMPLE}.prok1_contigs_greedy" "${SAMPLE}.prok2_contigs_greedy"
 
-  "${SEQKIT_BIN}" grep -f "${SAMPLE}.virus_contigs_list.txt" --invert-match \
+  seqkit grep -f "${SAMPLE}.virus_contigs_list.txt" --invert-match \
     "${SAMPLE}.01_tiara_kaiju_merged.euk.fasta" > "${SAMPLE}.02_tiara_kaiju_merged.euk-novirus.fasta"
-  "${SEQKIT_BIN}" stats -a "${SAMPLE}.02_tiara_kaiju_merged.euk-novirus.fasta" | sed '1d' > "${STATS_DIR}/${SAMPLE}.02_tiara_kaiju_merged.euk-novirus.stats.tsv"
+  seqkit stats -a "${SAMPLE}.02_tiara_kaiju_merged.euk-novirus.fasta" | sed '1d' >> "${STATS_DIR}/${SAMPLE}.pipeline.stats.tsv"
 
-  "${SEQKIT_BIN}" grep -f "${SAMPLE}.prok_contigs_list_greedy.txt" --invert-match \
+  seqkit grep -f "${SAMPLE}.prok_contigs_list_greedy.txt" --invert-match \
     "${SAMPLE}.02_tiara_kaiju_merged.euk-novirus.fasta" > "${SAMPLE}.03_tiara_kaiju_merged.euk-novirus-noprok.fasta"
-  "${SEQKIT_BIN}" stats -a "${SAMPLE}.03_tiara_kaiju_merged.euk-novirus-noprok.fasta" | sed '1d' > "${STATS_DIR}/${SAMPLE}.03_euk_novirus_noprok.stats.tsv"
+  seqkit stats -a "${SAMPLE}.03_tiara_kaiju_merged.euk-novirus-noprok.fasta" | sed '1d' >> "${STATS_DIR}/${SAMPLE}.pipeline.stats.tsv"
 
   kaiju -z "${KAIJU_THREADS}" -t "${KAIJU_NODES}" -f "${KAIJU_FMI}" \
     -i "${SAMPLE}.03_tiara_kaiju_merged.euk-novirus-noprok.fasta" \
@@ -295,17 +294,17 @@ process_sample() {
   cut -f 2 "${SAMPLE}.prok_contigs_mem22" > "${SAMPLE}.prok_contigs_list_mem22.txt" || true
   rm -f "${SAMPLE}.prok_contigs_mem22"
 
-  "${SEQKIT_BIN}" grep -f "${SAMPLE}.prok_contigs_list_mem22.txt" --invert-match \
+  seqkit grep -f "${SAMPLE}.prok_contigs_list_mem22.txt" --invert-match \
     "${SAMPLE}.03_tiara_kaiju_merged.euk-novirus-noprok.fasta" > "${SAMPLE}.04_tiara_kaiju_merged.euk-clean.fasta"
-  "${SEQKIT_BIN}" stats -a "${SAMPLE}.04_tiara_kaiju_merged.euk-clean.fasta" | sed '1d' > "${STATS_DIR}/${SAMPLE}.04_tiara_kaiju_merged.euk-clean.stats.tsv"
+  seqkit stats -a "${SAMPLE}.04_tiara_kaiju_merged.euk-clean.fasta" | sed '1d' >> "${STATS_DIR}/${SAMPLE}.pipeline.stats.tsv"
 
-  "${SEQKIT_BIN}" grep -f "${SAMPLE}.unclassified_contigs_greedy" \
+  seqkit grep -f "${SAMPLE}.unclassified_contigs_greedy" \
     "${SAMPLE}.03_tiara_kaiju_merged.euk-novirus-noprok.fasta" > "${SAMPLE}.05_tiara_kaiju_unclassified.fasta"
-  "${SEQKIT_BIN}" stats -a "${SAMPLE}.05_tiara_kaiju_unclassified.fasta" | sed '1d' > "${STATS_DIR}/${SAMPLE}.05_tiara_kaiju_unclassified.stats.tsv"
+  seqkit stats -a "${SAMPLE}.05_tiara_kaiju_unclassified.fasta" | sed '1d' >> "${STATS_DIR}/${SAMPLE}.pipeline.stats.tsv"
 
-  "${SEQKIT_BIN}" grep -f "${SAMPLE}.unclassified_contigs_greedy" --invert-match \
+  seqkit grep -f "${SAMPLE}.unclassified_contigs_greedy" --invert-match \
     "${SAMPLE}.04_tiara_kaiju_merged.euk-clean.fasta" > "${SAMPLE}.06_tiara_kaiju_merged.euk-clean_noU.fasta"
-  "${SEQKIT_BIN}" stats -a "${SAMPLE}.06_tiara_kaiju_merged.euk-clean_noU.fasta" | sed '1d' > "${STATS_DIR}/${SAMPLE}.06_tiara_kaiju_merged.euk-clean_noU.stats.tsv"
+  seqkit stats -a "${SAMPLE}.06_tiara_kaiju_merged.euk-clean_noU.fasta" | sed '1d' >> "${STATS_DIR}/${SAMPLE}.pipeline.stats.tsv"
   rm -f "${SAMPLE}.unclassified_contigs_greedy"
 
   # 4) EukRep on unclassified; merge with clean euk
@@ -316,8 +315,8 @@ process_sample() {
     "${SAMPLE}.07_eukrep_balanced1000.euk.fasta" \
     "${SAMPLE}.06_tiara_kaiju_merged.euk-clean_noU.fasta"
 
-  "${SEQKIT_BIN}" stats -a "${SAMPLE}.07_eukrep_balanced1000.euk.fasta" | sed '1d' > "${STATS_DIR}/${SAMPLE}.07_eukrep_balanced1000.euk.stats.tsv"
-  "${SEQKIT_BIN}" stats -a "${SAMPLE}.08_tiara_kaiju_eukrep.euk-pool.fasta" | sed '1d' > "${STATS_DIR}/${SAMPLE}.08_final_euk_pool.stats.tsv"
+  seqkit stats -a "${SAMPLE}.07_eukrep_balanced1000.euk.fasta" | sed '1d' >> "${STATS_DIR}/${SAMPLE}.pipeline.stats.tsv"
+  seqkit stats -a "${SAMPLE}.08_tiara_kaiju_eukrep.euk-pool.fasta" | sed '1d' >> "${STATS_DIR}/${SAMPLE}.pipeline.stats.tsv"
 
   # 5) Get Kaiju summary / Krona html od the final euk pool
   
@@ -326,7 +325,7 @@ process_sample() {
     -e "${KAIJU_GREEDY_E}" -s "${KAIJU_GREEDY_S}" \
     -o "${SAMPLE}.08_tiara_kaiju_eukrep.euk-pool.fasta.out"
 
-  #kaiju2table -t "${KAIJU_NODES}" -n "${KAIJU_NAMES}" -r phylum -p \
+  kaiju2table -t "${KAIJU_NODES}" -n "${KAIJU_NAMES}" -r phylum -p \
     -o "${SAMPLE}.08_tiara_kaiju_eukrep.euk-pool_summary.tsv" \
     "${SAMPLE}.08_tiara_kaiju_eukrep.euk-pool.fasta.out"
     
@@ -359,9 +358,9 @@ process_sample() {
       grep -E    "${PATTERN}" "${SAMPLE}.for_${SLUG}.names" > "${SAMPLE}.${SLUG}_contigs"
     fi
     cut -f 2 "${SAMPLE}.${SLUG}_contigs" > "${SAMPLE}.${SLUG}_contigs_list.txt"
-    "${SEQKIT_BIN}" grep -f "${SAMPLE}.${SLUG}_contigs_list.txt" \
+    seqkit grep -f "${SAMPLE}.${SLUG}_contigs_list.txt" \
       "${SAMPLE}.08_tiara_kaiju_eukrep.euk-pool.fasta" > "${SAMPLE}.09_euk_pool_only_${SLUG}.fasta"
-    "${SEQKIT_BIN}" stats -a "${SAMPLE}.09_euk_pool_only_${SLUG}.fasta" | sed '1d' > "${STATS_DIR}/${SAMPLE}.09_euk_pool_only_${SLUG}.stats.tsv"
+    seqkit stats -a "${SAMPLE}.09_euk_pool_only_${SLUG}.fasta" | sed '1d' >> "${STATS_DIR}/${SAMPLE}.pipeline.stats.tsv"
   fi
 }  
 
