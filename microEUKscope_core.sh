@@ -227,11 +227,6 @@ process_sample() {
     -e "${KAIJU_GREEDY_E}" -s "${KAIJU_GREEDY_S}" \
     -o "${SAMPLE}.kaiju-greedy.tiara_merged_small_contigs.non-euk.fasta.out"
 
-  kaiju2krona -t "${KAIJU_NODES}" -n "${KAIJU_NAMES}" \
-    -i "${SAMPLE}.kaiju-greedy.tiara_merged_small_contigs.non-euk.fasta.out" \
-    -o "${SAMPLE}.kaiju_new_db_tiara_small_noeuk.krona"
-  ktImportText -o "${SAMPLE}_tiara_small_noeuk.html" "${SAMPLE}.kaiju_new_db_tiara_small_noeuk.krona"
-
   kaiju-addTaxonNames -t "${KAIJU_NODES}" -n "${KAIJU_NAMES}" \
     -i "${SAMPLE}.kaiju-greedy.tiara_merged_small_contigs.non-euk.fasta.out" -u -p \
     -o "${SAMPLE}_tiara_small_noeuk.names"
@@ -256,11 +251,6 @@ process_sample() {
     -e "${KAIJU_GREEDY_E}" -s "${KAIJU_GREEDY_S}" \
     -o "${SAMPLE}.tiara_kaiju_merged.euk.out"
 
-  kaiju2krona -t "${KAIJU_NODES}" -n "${KAIJU_NAMES}" \
-    -i "${SAMPLE}.tiara_kaiju_merged.euk.out" \
-    -o "${SAMPLE}.kaiju_new_db_merged-euk.krona"
-  ktImportText -o "${SAMPLE}.01_kaiju_greedy_merged-euk.html" "${SAMPLE}.kaiju_new_db_merged-euk.krona"
-
   kaiju-addTaxonNames -t "${KAIJU_NODES}" -n "${KAIJU_NAMES}" \
     -i "${SAMPLE}.tiara_kaiju_merged.euk.out" -u -p \
     -o "${SAMPLE}_merged-euk.names"
@@ -268,10 +258,6 @@ process_sample() {
   kaiju2table -t "${KAIJU_NODES}" -n "${KAIJU_NAMES}" -r phylum -p \
     -o "${SAMPLE}.01_kaiju_greedy_summary.tsv" \
     "${SAMPLE}.tiara_kaiju_merged.euk.out"
-
-  mkdir -p "${SAMPLE_DIR}/summary"
-  mv -f "${SAMPLE}.01_kaiju_greedy_summary.tsv" "${SAMPLE_DIR}/summary/"
-  mv -f "${SAMPLE}.01_kaiju_greedy_merged-euk.html" "${SAMPLE_DIR}/summary/"
 
   grep "Viruses"  "${SAMPLE}_merged-euk.names" > "${SAMPLE}.virus_contigs_greedy" || true
   grep "Bacteria" "${SAMPLE}_merged-euk.names" > "${SAMPLE}.prok1_contigs_greedy" || true
@@ -295,11 +281,6 @@ process_sample() {
     -i "${SAMPLE}.03_tiara_kaiju_merged.euk-novirus-noprok.fasta" \
     -a mem -m 22 \
     -o "${SAMPLE}.tiara_kaiju_merged.euk-no-virus-noprok.out"
-
-  kaiju2krona -t "${KAIJU_NODES}" -n "${KAIJU_NAMES}" \
-    -i "${SAMPLE}.tiara_kaiju_merged.euk-no-virus-noprok.out" \
-    -o "${SAMPLE}.kaiju_new_db_mem22.krona"
-  ktImportText -o "${SAMPLE}_mem22.html" "${SAMPLE}.kaiju_new_db_mem22.krona"
 
   # 3) mem22 cleanup
   kaiju-addTaxonNames -t "${KAIJU_NODES}" -n "${KAIJU_NAMES}" \
@@ -338,7 +319,26 @@ process_sample() {
   "${SEQKIT_BIN}" stats -a "${SAMPLE}.07_eukrep_balanced1000.euk.fasta" | sed '1d' > "${STATS_DIR}/${SAMPLE}.07_eukrep_balanced1000.euk.stats.tsv"
   "${SEQKIT_BIN}" stats -a "${SAMPLE}.08_tiara_kaiju_eukrep.euk-pool.fasta" | sed '1d' > "${STATS_DIR}/${SAMPLE}.08_final_euk_pool.stats.tsv"
 
-  # 5) OPTIONAL step: taxa subset
+  # 5) Get Kaiju summary / Krona html od the final euk pool
+  
+  kaiju -z "${KAIJU_THREADS}" -t "${KAIJU_NODES}" -f "${KAIJU_FMI}" \
+    -i "${SAMPLE}.08_tiara_kaiju_eukrep.euk-pool.fasta" \
+    -e "${KAIJU_GREEDY_E}" -s "${KAIJU_GREEDY_S}" \
+    -o "${SAMPLE}.08_tiara_kaiju_eukrep.euk-pool.fasta.out"
+
+  #kaiju2table -t "${KAIJU_NODES}" -n "${KAIJU_NAMES}" -r phylum -p \
+    -o "${SAMPLE}.08_tiara_kaiju_eukrep.euk-pool_summary.tsv" \
+    "${SAMPLE}.08_tiara_kaiju_eukrep.euk-pool.fasta.out"
+    
+  kaiju2krona -t "${KAIJU_NODES}" -n "${KAIJU_NAMES}" \
+    -i "${SAMPLE}.08_tiara_kaiju_eukrep.euk-pool.fasta.out" \
+    -o "${SAMPLE}.08_tiara_kaiju_eukrep.euk-pool.krona"
+  ktImportText -o "${SAMPLE}.08_tiara_kaiju_eukrep.euk-pool.html" "${SAMPLE}.08_tiara_kaiju_eukrep.euk-pool.krona"
+ 
+  mv -f "${SAMPLE}.08_tiara_kaiju_eukrep.euk-pool_summary.tsv" "${SUMMARY_DIR}/"
+  mv -f "${SAMPLE}.08_tiara_kaiju_eukrep.euk-pool.html" "${SUMMARY_DIR}/"
+
+  # 6) OPTIONAL step: taxa subset
   if [[ "${DO_TAXON_SUBSET}" -eq 1 ]]; then
     SLUG_RAW="${TAXON_FILTERS}"; SLUG="${SLUG_RAW// /_}"; SLUG="${SLUG//[^A-Za-z0-9_.-]/_}"
     kaiju -z "${KAIJU_THREADS}" -t "${KAIJU_NODES}" -f "${KAIJU_FMI}" \
