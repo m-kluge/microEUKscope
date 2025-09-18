@@ -44,6 +44,7 @@ export KAIJU_FMI="${KAIJU_FMI:-${KAIJU_DB_DIR}/JGI_myco_phyco_oct22_nr_euk_jan23
 export KAIJU_THREADS="${KAIJU_THREADS:-20}"
 export KAIJU_GREEDY_E="${KAIJU_GREEDY_E:-5}"
 export KAIJU_GREEDY_S="${KAIJU_GREEDY_S:-75}"
+export KAIJU_EVALUE="${KAIJU_EVALUE:-0.01}" # 0.01 is default, use 1000000 for effectively no E-value filter (as versions older than 1.9)
 
 # Optional step: taxa subset on final euk pool
 export DO_TAXON_SUBSET="${DO_TAXON_SUBSET:-0}" # 1=on, 0=off
@@ -223,7 +224,7 @@ process_sample() {
   # 1) Kaiju greedy on small non-euk contigs
   kaiju -z "${KAIJU_THREADS}" -t "${KAIJU_NODES}" -f "${KAIJU_FMI}" \
     -i "${SAMPLE}.tiara_merged_small_contigs.non-euk.fasta" \
-    -e "${KAIJU_GREEDY_E}" -s "${KAIJU_GREEDY_S}" \
+    -e "${KAIJU_GREEDY_E}" -s "${KAIJU_GREEDY_S}" -E "${KAIJU_EVALUE}" \
     -o "${SAMPLE}.kaiju-greedy.tiara_merged_small_contigs.non-euk.fasta.out"
 
   kaiju-addTaxonNames -t "${KAIJU_NODES}" -n "${KAIJU_NAMES}" \
@@ -247,7 +248,7 @@ process_sample() {
   # 2) Kaiju greedy on merged euk; remove viruses/prok
   kaiju -z "${KAIJU_THREADS}" -t "${KAIJU_NODES}" -f "${KAIJU_FMI}" \
     -i "${SAMPLE}.01_tiara_kaiju_merged.euk.fasta" \
-    -e "${KAIJU_GREEDY_E}" -s "${KAIJU_GREEDY_S}" \
+    -e "${KAIJU_GREEDY_E}" -s "${KAIJU_GREEDY_S}" -E "${KAIJU_EVALUE}" \
     -o "${SAMPLE}.tiara_kaiju_merged.euk.out"
 
   kaiju-addTaxonNames -t "${KAIJU_NODES}" -n "${KAIJU_NAMES}" \
@@ -266,7 +267,6 @@ process_sample() {
 # get IDs for unclassified (column 1 == "U"), print column 2
 awk -F'\t' '$1=="U"{print $2}' "${SAMPLE}.tiara_kaiju_merged.euk.out" \
   > "${SAMPLE}.unclassified_contigs_greedy"
-
 
   cut -f 2 "${SAMPLE}.virus_contigs_greedy" > "${SAMPLE}.virus_contigs_list.txt" || true
   cut -f 2 "${SAMPLE}.prok_contigs_greedy"  > "${SAMPLE}.prok_contigs_list_greedy.txt" || true
@@ -326,7 +326,7 @@ awk -F'\t' '$1=="U"{print $2}' "${SAMPLE}.tiara_kaiju_merged.euk.out" \
   
   kaiju -z "${KAIJU_THREADS}" -t "${KAIJU_NODES}" -f "${KAIJU_FMI}" \
     -i "${SAMPLE}.08_tiara_kaiju_eukrep.euk-pool.fasta" \
-    -e "${KAIJU_GREEDY_E}" -s "${KAIJU_GREEDY_S}" \
+    -e "${KAIJU_GREEDY_E}" -s "${KAIJU_GREEDY_S}" -E "${KAIJU_EVALUE}" \
     -o "${SAMPLE}.08_tiara_kaiju_eukrep.euk-pool.fasta.out"
 
   kaiju2table -t "${KAIJU_NODES}" -n "${KAIJU_NAMES}" -r phylum -p \
@@ -346,7 +346,7 @@ awk -F'\t' '$1=="U"{print $2}' "${SAMPLE}.tiara_kaiju_merged.euk.out" \
     SLUG_RAW="${TAXON_FILTERS}"; SLUG="${SLUG_RAW// /_}"; SLUG="${SLUG//[^A-Za-z0-9_.-]/_}"
     kaiju -z "${KAIJU_THREADS}" -t "${KAIJU_NODES}" -f "${KAIJU_FMI}" \
       -i "${SAMPLE}.08_tiara_kaiju_eukrep.euk-pool.fasta" \
-      -e "${KAIJU_GREEDY_E}" -s "${KAIJU_GREEDY_S}" \
+      -e "${KAIJU_GREEDY_E}" -s "${KAIJU_GREEDY_S}" -E "${KAIJU_EVALUE}" \
       -o "${SAMPLE}.kaiju-greedy.for_${SLUG}.out"
     kaiju2krona -t "${KAIJU_NODES}" -n "${KAIJU_NAMES}" \
       -i "${SAMPLE}.kaiju-greedy.for_${SLUG}.out" \
