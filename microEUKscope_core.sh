@@ -262,7 +262,11 @@ process_sample() {
   grep "Bacteria" "${SAMPLE}_merged-euk.names" > "${SAMPLE}.prok1_contigs_greedy" || true
   grep "Archaea"  "${SAMPLE}_merged-euk.names" > "${SAMPLE}.prok2_contigs_greedy" || true
   cat "${SAMPLE}.prok1_contigs_greedy" "${SAMPLE}.prok2_contigs_greedy" > "${SAMPLE}.prok_contigs_greedy" || true
-  grep -E '^U\t' "${SAMPLE}.tiara_kaiju_merged.euk.out" | cut -f 2 > "${SAMPLE}.unclassified_contigs_greedy" || true
+
+# get IDs for unclassified (column 1 == "U"), print column 2
+awk -F'\t' '$1=="U"{print $2}' "${SAMPLE}.tiara_kaiju_merged.euk.out" \
+  > "${SAMPLE}.unclassified_contigs_greedy"
+
 
   cut -f 2 "${SAMPLE}.virus_contigs_greedy" > "${SAMPLE}.virus_contigs_list.txt" || true
   cut -f 2 "${SAMPLE}.prok_contigs_greedy"  > "${SAMPLE}.prok_contigs_list_greedy.txt" || true
