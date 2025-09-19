@@ -1,6 +1,6 @@
 # microEUKscope
 
-A pipeline to extract, curate, and summarize **eukaryotic contigs** from metagenomic assemblies using **Tiara → Kaiju → EukRep**, with per-sample stats, and Krona HTML summaries.
+A pipeline to extract, classify, and summarize **eukaryotic contigs** from metagenomic assemblies using **Tiara → Kaiju → EukRep**, with per-sample stats, and Krona HTML summaries.
 
 **SLURM-ready**: job array over `SAMPLE_LIST`; also runnable locally without SLURM.
 
