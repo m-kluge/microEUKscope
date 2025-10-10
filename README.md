@@ -21,7 +21,7 @@ c) A one-shot builder that merges all input FASTAs and indexes for Kaiju (.bwt/.
   - subset local BLAST `nr` with `blastdbcmd` (no `prot.accession2taxid` needed),
   - write Kaiju-style headers `>ACCESSION_TAXID` (version-insensitive exclude list),
   - (optionally) **merge multiple FASTAs** and **build Kaiju `.bwt/.fmi`** indexes.
-- **pipeline/** — the microEUKscope pipeline: Tiara classification, Kaiju classification, EukRep filtering, coverage/mapping summaries, and Krona reports.
+- **pipeline/** — the microEUKscope pipeline: Tiara classification, Kaiju classification, EukRep filtering, and Krona reports.
 - **env/** — env for dbbuilder and full pipeline.
 - **config/** — example configs (`dbbuilder-example.env`, `config-example.env`).
 
