@@ -1,10 +1,29 @@
 # microEUKscope
 
-A pipeline to extract, classify, and summarize **eukaryotic contigs** from metagenomic assemblies using **Tiara → Kaiju → EukRep**, with per-sample stats, and Krona HTML summaries.
+A toolkit for micro-eukaryote metagenomics with two parts:
 
-**SLURM-ready**: job array over `SAMPLE_LIST`; also runnable locally without SLURM.
+1) **Customized Database Builder (Kaiju-compatible)** — create **Kaiju-ready protein FASTAs** from local BLAST v5 `nr` and/or your own FASTAs, then index with Kaiju. It provides:
+  
+a) Scripts to retrieve target TaxIDs and collect all descendants via NCBI taxdump.
 
-**Note on compatibility**: EukRep requires **scikit-learn 0.23.x** (the model pickle depends on it). The provided environment is pinned accordingly.
+b) Scripts to download and update protein FASTAs from JGI MycoCosm and PhycoCosm.
+
+c) A one-shot builder that merges all input FASTAs and indexes for Kaiju (.bwt/.fmi).
+
+2) **Analysis Pipeline** — extract, classify, and summarize **microeukaryotic contigs** from metagenomic assemblies using **Tiara → Kaiju → EukRep**, with per-sample stats and Krona HTML summaries.
+
+---
+
+## What’s included
+
+- **dbbuilder/** — Database Builder. Scripts to:
+  - expand/resolve target TaxIDs via NCBI taxdump (handles merged/deprecated IDs),
+  - subset local BLAST `nr` with `blastdbcmd` (no `prot.accession2taxid` needed),
+  - write Kaiju-style headers `>ACCESSION_TAXID` (version-insensitive exclude list),
+  - (optionally) **merge multiple FASTAs** and **build Kaiju `.bwt/.fmi`** indexes.
+- **pipeline/** — the microEUKscope pipeline: Tiara classification, Kaiju classification, EukRep filtering, coverage/mapping summaries, and Krona reports.
+- **env/** — env for dbbuilder and full pipeline.
+- **config/** — example configs (`dbbuilder-example.env`, `config-example.env`).
 
 ---
 
@@ -26,67 +45,20 @@ conda activate microEUKscope
 micromamba env create -f environment.yml -n microEUKscope
 micromamba activate microEUKscope
 ```
+> **Compatibility note:** EukRep requires **scikit-learn 0.23.x** (model pickle). The provided environment is pinned accordingly.
 
-### 3) Configure
-```bash
-cp config-example.env config.env
-# edit config.env: CONTIGS_DIR, KAIJU_DB_DIR, PROJECT_DIR, etc.
-```
-
-### 4) Sample list
-
-Create a plaintext file (default name: sample_list) with one sample ID per line, no header. If you use a different filename, set SAMPLE_LIST=/path/to/list in config.env.
-
-```nginx
-Sample1
-Sample2
-Sample3
-```
 
 ## Running
 
-### A) SLURM (array over all samples)
-```bash
-chmod +x submit_slurm.sh microEUKscope.sbatch microEUKscope_core.sh
-bash submit_slurm.sh
-```
-Array size = number of lines in SAMPLE_LIST.
-SLURM partition/time/cpus/memory are read from config.env.
+Please see README files for dbbuilder and microEUKscope pipeline:
 
-### B) Local (no SLURM)
 
-All samples: 
-```bash
-# mimic the sbatch environment used in microEUKscope.sbatch
-source config.env
-export PATH="${ENV_PREFIX}/bin:${PATH}"
-export LD_LIBRARY_PATH="${ENV_PREFIX}/lib:${LD_LIBRARY_PATH:-}"
+Database Builder: docs/dbbuilder.md
 
-bash microEUKscope_core.sh
-```
+Pipeline guide: docs/pipeline.md
 
-Single sample (e.g., 3rd in SAMPLE_LIST) without SLURM:
-```bash
-source config.env
-export PATH="${ENV_PREFIX}/bin:${PATH}"
 
-SLURM_ARRAY_TASK_ID=3 bash microEUKscope_core.sh
-```
 
-Single named sample using a one-line temp list:
-```bash
-printf '%s\n' "Sample_TF-2587-GR7-5" > /tmp/one_sample.list
-SAMPLE_LIST=/tmp/one_sample.list bash microEUKscope_core.sh
-```
 
-## Output
 
-For each SAMPLE, the pipeline creates a **per-sample work dir**: ${OUTPUT_DIR}/${SAMPLE}/, cointaiing all intermediate FASTA files from Tiara/Kaiju/EukRep and Kaiju outputs.
 
-The **final fasta file with eukaryotic contigs** is ${SAMPLE}.08_tiara_kaiju_eukrep.euk-pool.fasta
-
-A per-sample **run log** (${SAMPLE}.pipeline.run.log) is created. 
-
-**Stats dir** ${STATS_DIR}/ with single concatenated stats file per sample: ${SAMPLE}.pipeline.stats.tsv — contains seqkit stats for each generated fasta file.
-
-**Summary dir**: ${SUMMARY_DIR}/ with Krona HTML of the final euk pool (${SAMPLE}.08_tiara_kaiju_eukrep.euk-pool.html) and Kaiju summary TSV (${SAMPLE}.08_tiara_kaiju_eukrep.euk-pool_summary.tsv)
