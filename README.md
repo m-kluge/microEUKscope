@@ -4,7 +4,7 @@ A toolkit for microeukaryote metagenomics
  
 The microEUKscope pipeline was developed to identify microeukaryotes from assemblies of metagenomic environmental samples. We have combined and benchmarked existing tools (TIARA, Kaiju, EukRep) to taxonomically annotate contigs, and generate a fasta file with the classified microeukaryotes. The user can also use this pipeline to retrieve the classified prokaryotic and viral sequences. 
 
-The pipeline uses a customized nr+euk Kaiju database, where it includes microeukaryotic groups ([https://doi.org/10.1016/j.tree.2019.08.008](https://doi.org/10.1016/j.tree.2019.08.008)) and the genomes available at JGI's Mycocosm and Phycocosm. This database is ready to download at Figshare (ADD project). Additionally, the user can use a number of scripts here provided to build and index its own Kaiju-compatible database.
+The pipeline uses a customized nr+euk Kaiju database, which includes microeukaryotic groups ([https://doi.org/10.1016/j.tree.2019.08.008](https://doi.org/10.1016/j.tree.2019.08.008)) and the genomes available at JGI's Mycocosm and Phycocosm. This database is ready to download at Figshare (ADD project). Additionally, the user can use a number of scripts here provided to build and index its own Kaiju-compatible database.
 
 The setup overview is:
 
