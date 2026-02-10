@@ -1,6 +1,6 @@
 #!/bin/bash -l
 #SBATCH -J microEUKscope
-# (time/partition/account/array/CPUs/mem etc. are provided by submit_slurm.sh)
+## Set time/partition/account/array/CPUs/mem etc according to your cluster
 
 set -euo pipefail
 
