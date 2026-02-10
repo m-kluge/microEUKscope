@@ -1,10 +1,6 @@
 #!/usr/bin/env bash
 #set -euo pipefail
 
-###############################################################################
-# Load user config (edit config.env, not this script)
-###############################################################################
-
 # Load config
 if [[ -f "config.env" ]]; then
   # shellcheck disable=SC1091
@@ -21,17 +17,19 @@ fi
 export SAMPLE_LIST="${SAMPLE_LIST:-sample_list}"
 
 # Directories / paths
-export CONTIGS_DIR="${CONTIGS_DIR:-/path/to/contigs}" # contains files like ${SAMPLE}*.fa|*.fasta[.gz]
+export CONTIGS_DIR="${CONTIGS_DIR:-/path/to/contigs}"          # contains files like ${SAMPLE}*.fa|*.fasta[.gz]
 export PROJECT_DIR="${PROJECT_DIR:-/path/to/project}"
-export OUTPUT_DIR="${OUTPUT_DIR:-${PROJECT_DIR}/output}" # per-sample working directory
+export OUTPUT_DIR="${OUTPUT_DIR:-${PROJECT_DIR}/output}"       # per-sample working directory
 export STATS_DIR="${STATS_DIR:-${PROJECT_DIR}/stats}"
-export SUMMARY_DIR="${SUMMARY_DIR:-${OUTPUT_DIR}/summary}" # all stats + krona
+export SUMMARY_DIR="${SUMMARY_DIR:-${OUTPUT_DIR}/summary}"     # all stats + krona
 
 # Tiara
 export TIARA_THREADS="${TIARA_THREADS:-20}"
 export TIARA_TF="${TIARA_TF:-all}"
-export BIN_S500_MIN="${BIN_S500_MIN:-500}";   export BIN_S500_MAX="${BIN_S500_MAX:-999}"
-export BIN_S1000_MIN="${BIN_S1000_MIN:-1000}"; export BIN_S1000_MAX="${BIN_S1000_MAX:-2999}"
+export BIN_S500_MIN="${BIN_S500_MIN:-500}"
+export BIN_S500_MAX="${BIN_S500_MAX:-999}"
+export BIN_S1000_MIN="${BIN_S1000_MIN:-1000}"
+export BIN_S1000_MAX="${BIN_S1000_MAX:-2999}"
 export BIN_3K_MIN="${BIN_3K_MIN:-3000}"
 
 # Kaiju DB (edit in config.env)
@@ -44,30 +42,41 @@ export KAIJU_FMI="${KAIJU_FMI:-${KAIJU_DB_DIR}/JGI_myco_phyco_oct22_nr_euk_jan23
 export KAIJU_THREADS="${KAIJU_THREADS:-20}"
 export KAIJU_GREEDY_E="${KAIJU_GREEDY_E:-5}"
 export KAIJU_GREEDY_S="${KAIJU_GREEDY_S:-75}"
-export KAIJU_EVALUE="${KAIJU_EVALUE:-0.01}" # 0.01 is default, use 1000000 for effectively no E-value filter (as versions older than 1.9)
+export KAIJU_EVALUE="${KAIJU_EVALUE:-0.01}"   # 0.01 is default; use 1000000 for effectively no E-value filter (older Kaiju)
 
 # Optional step: taxa subset on final euk pool
-export DO_TAXON_SUBSET="${DO_TAXON_SUBSET:-0}" # 1=on, 0=off
-export TAXON_FILTERS="${TAXON_FILTERS:-Fungi}" # e.g. "Fungi"
-export CASE_INSENSITIVE="${CASE_INSENSITIVE:-0}" # 0=case-sensitive (default), set 1 for grep -i
+export DO_TAXON_SUBSET="${DO_TAXON_SUBSET:-0}"       # 1=on, 0=off
+export TAXON_FILTERS="${TAXON_FILTERS:-Fungi}"       # e.g. "Fungi" or "Fungi Oomycota"
+export CASE_INSENSITIVE="${CASE_INSENSITIVE:-0}"     # 0=case-sensitive, set 1 for grep -i
 
 # Ensure output dirs exist
 mkdir -p "${OUTPUT_DIR}" "${SUMMARY_DIR}" "${STATS_DIR}"
 
-# Helpers: safe_cat with logging & .gz support
+###############################################################################
+# Helpers
+###############################################################################
+
+# safe_cat: concatenate multiple files to one output, supports .gz inputs.
+# If nothing is written, prints a warning (does not fail).
 safe_cat() {
   local out="$1"; shift
   : > "$out"
   local ok=0
+
   for f in "$@"; do
     [[ -s "$f" ]] || continue
-    if [[ "$f" == *.gz ]]; then gzip -cd -- "$f" >> "$out"; else cat -- "$f" >> "$out"; fi
-    ((ok++))
+    if [[ "$f" == *.gz ]]; then
+      gzip -cd -- "$f" >> "$out"
+    else
+      cat -- "$f" >> "$out"
+    fi
+    ((ok++)) || true
   done
+
   [[ $ok -eq 0 ]] && echo "[safe_cat] WARNING: nothing written to $(basename "$out")" >&2
 }
 
-# ---- choose input contigs: first match of ${SAMPLE}*.fa|*.fasta[.gz], warn if >1
+# Choose input contigs: first match of ${SAMPLE}*.fa|*.fasta[.gz], warn if >1
 choose_input_contigs() {
   local sample="${1:?missing sample id}"
   local canon="${sample}.contigs_input.fa"
@@ -80,7 +89,7 @@ choose_input_contigs() {
     | LC_ALL=C sort
   )
 
-  (( ${#candidates[@]} >= 1 )) || { 
+  (( ${#candidates[@]} >= 1 )) || {
     echo "[input] No contigs for ${sample} in ${CONTIGS_DIR}" >&2
     return 1
   }
@@ -99,16 +108,21 @@ choose_input_contigs() {
   echo "$canon"
 }
 
+###############################################################################
+# Pipeline per sample
+###############################################################################
+
 process_sample() {
   local SAMPLE="$1"
 
   local SAMPLE_DIR="${OUTPUT_DIR}/${SAMPLE}"
   mkdir -p "${SAMPLE_DIR}"
+
   exec > >(tee -a "${SAMPLE_DIR}/${SAMPLE}.pipeline.run.log") 2>&1
   echo "[`date '+%F %T'`] Start ${SAMPLE}"
   cd "${SAMPLE_DIR}"
 
-  # input
+  # Input
   local SRC_CONTIGS
   SRC_CONTIGS="$(choose_input_contigs "${SAMPLE}")" || exit 1
   echo "[input] using $(basename "$SRC_CONTIGS")"
@@ -116,6 +130,7 @@ process_sample() {
   ########################
   # TIARA
   ########################
+
   echo "[`date '+%F %T'`] Tiara 3k"
   tiara -i "${SRC_CONTIGS}" -o "${SAMPLE}.out3000.txt" -t "${TIARA_THREADS}" -m "${BIN_3K_MIN}" --tf "${TIARA_TF}"
 
@@ -215,10 +230,11 @@ process_sample() {
         "${SAMPLE}.tiara_S500.non-euk.fasta" "${SAMPLE}.tiara_S1000.non-euk.fasta"
 
   rm -f "${SAMPLE}.contigs_input.fa"
-  
+
   ########################
   # KAIJU + EUKREP
   ########################
+
   echo "[`date '+%F %T'`] Kaiju + EukRep"
 
   # 1) Kaiju greedy on small non-euk contigs
@@ -264,9 +280,9 @@ process_sample() {
   grep "Archaea"  "${SAMPLE}_merged-euk.names" > "${SAMPLE}.prok2_contigs_greedy" || true
   cat "${SAMPLE}.prok1_contigs_greedy" "${SAMPLE}.prok2_contigs_greedy" > "${SAMPLE}.prok_contigs_greedy" || true
 
-# get IDs for unclassified (column 1 == "U"), print column 2
-awk -F'\t' '$1=="U"{print $2}' "${SAMPLE}.tiara_kaiju_merged.euk.out" \
-  > "${SAMPLE}.unclassified_contigs_greedy"
+  # Get IDs for unclassified (column 1 == "U"), print column 2
+  awk -F'\t' '$1=="U"{print $2}' "${SAMPLE}.tiara_kaiju_merged.euk.out" \
+    > "${SAMPLE}.unclassified_contigs_greedy"
 
   cut -f 2 "${SAMPLE}.virus_contigs_greedy" > "${SAMPLE}.virus_contigs_list.txt" || true
   cut -f 2 "${SAMPLE}.prok_contigs_greedy"  > "${SAMPLE}.prok_contigs_list_greedy.txt" || true
@@ -322,8 +338,7 @@ awk -F'\t' '$1=="U"{print $2}' "${SAMPLE}.tiara_kaiju_merged.euk.out" \
   seqkit stats -a "${SAMPLE}.07_eukrep_balanced1000.euk.fasta" | sed '1d' >> "${STATS_DIR}/${SAMPLE}.pipeline.stats.tsv"
   seqkit stats -a "${SAMPLE}.08_tiara_kaiju_eukrep.euk-pool.fasta" | sed '1d' >> "${STATS_DIR}/${SAMPLE}.pipeline.stats.tsv"
 
-  # 5) Get Kaiju summary / Krona html od the final euk pool
-  
+  # 5) Get Kaiju summary / Krona html of the final euk pool
   kaiju -z "${KAIJU_THREADS}" -t "${KAIJU_NODES}" -f "${KAIJU_FMI}" \
     -i "${SAMPLE}.08_tiara_kaiju_eukrep.euk-pool.fasta" \
     -e "${KAIJU_GREEDY_E}" -s "${KAIJU_GREEDY_S}" -E "${KAIJU_EVALUE}" \
@@ -332,43 +347,58 @@ awk -F'\t' '$1=="U"{print $2}' "${SAMPLE}.tiara_kaiju_merged.euk.out" \
   kaiju2table -t "${KAIJU_NODES}" -n "${KAIJU_NAMES}" -r phylum -p \
     -o "${SAMPLE}.08_tiara_kaiju_eukrep.euk-pool_summary.tsv" \
     "${SAMPLE}.08_tiara_kaiju_eukrep.euk-pool.fasta.out"
-    
+
   kaiju2krona -t "${KAIJU_NODES}" -n "${KAIJU_NAMES}" \
     -i "${SAMPLE}.08_tiara_kaiju_eukrep.euk-pool.fasta.out" \
     -o "${SAMPLE}.08_tiara_kaiju_eukrep.euk-pool.krona"
+
   ktImportText -o "${SAMPLE}.08_tiara_kaiju_eukrep.euk-pool.html" "${SAMPLE}.08_tiara_kaiju_eukrep.euk-pool.krona"
- 
+
   mv -f "${SAMPLE}.08_tiara_kaiju_eukrep.euk-pool_summary.tsv" "${SUMMARY_DIR}/"
   mv -f "${SAMPLE}.08_tiara_kaiju_eukrep.euk-pool.html" "${SUMMARY_DIR}/"
 
   # 6) OPTIONAL step: taxa subset
   if [[ "${DO_TAXON_SUBSET}" -eq 1 ]]; then
-    SLUG_RAW="${TAXON_FILTERS}"; SLUG="${SLUG_RAW// /_}"; SLUG="${SLUG//[^A-Za-z0-9_.-]/_}"
+    SLUG_RAW="${TAXON_FILTERS}"
+    SLUG="${SLUG_RAW// /_}"
+    SLUG="${SLUG//[^A-Za-z0-9_.-]/_}"
+
     kaiju -z "${KAIJU_THREADS}" -t "${KAIJU_NODES}" -f "${KAIJU_FMI}" \
       -i "${SAMPLE}.08_tiara_kaiju_eukrep.euk-pool.fasta" \
       -e "${KAIJU_GREEDY_E}" -s "${KAIJU_GREEDY_S}" -E "${KAIJU_EVALUE}" \
       -o "${SAMPLE}.kaiju-greedy.for_${SLUG}.out"
+
     kaiju2krona -t "${KAIJU_NODES}" -n "${KAIJU_NAMES}" \
       -i "${SAMPLE}.kaiju-greedy.for_${SLUG}.out" \
       -o "${SAMPLE}.kaiju-greedy.for_${SLUG}.krona"
     ktImportText -o "${SAMPLE}.kaiju-greedy.for_${SLUG}.html" "${SAMPLE}.kaiju-greedy.for_${SLUG}.krona"
+
     kaiju-addTaxonNames -t "${KAIJU_NODES}" -n "${KAIJU_NAMES}" \
       -i "${SAMPLE}.kaiju-greedy.for_${SLUG}.out" -u -p \
       -o "${SAMPLE}.for_${SLUG}.names"
-    PATTERN="$(printf '%s|' ${TAXON_FILTERS})"; PATTERN="${PATTERN%|}"
+
+    PATTERN="$(printf '%s|' ${TAXON_FILTERS})"
+    PATTERN="${PATTERN%|}"
+
     if [[ "${CASE_INSENSITIVE}" -eq 1 ]]; then
       grep -E -i "${PATTERN}" "${SAMPLE}.for_${SLUG}.names" > "${SAMPLE}.${SLUG}_contigs"
     else
       grep -E    "${PATTERN}" "${SAMPLE}.for_${SLUG}.names" > "${SAMPLE}.${SLUG}_contigs"
     fi
+
     cut -f 2 "${SAMPLE}.${SLUG}_contigs" > "${SAMPLE}.${SLUG}_contigs_list.txt"
+
     seqkit grep -f "${SAMPLE}.${SLUG}_contigs_list.txt" \
       "${SAMPLE}.08_tiara_kaiju_eukrep.euk-pool.fasta" > "${SAMPLE}.09_euk_pool_only_${SLUG}.fasta"
+
     seqkit stats -a "${SAMPLE}.09_euk_pool_only_${SLUG}.fasta" | sed '1d' >> "${STATS_DIR}/${SAMPLE}.pipeline.stats.tsv"
   fi
-}  
+}
 
+###############################################################################
 # SLURM array (one sample) or local loop (all samples)
+###############################################################################
+
 if [[ -n "${SLURM_ARRAY_TASK_ID:-}" ]]; then
   SAMPLE="$(sed -n "${SLURM_ARRAY_TASK_ID}p" "${SAMPLE_LIST}")"
   [[ -n "$SAMPLE" ]] || { echo "Empty SAMPLE for task ${SLURM_ARRAY_TASK_ID}"; exit 1; }
