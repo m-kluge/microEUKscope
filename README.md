@@ -175,6 +175,28 @@ sbatch \
 microEUKscope.sbatch
 ```
 
+You can also edit the header of the ```microEUKscope.sbatch``` to set the SBATCH flags of your cluster, for instance:
+
+```bash
+#!/bin/bash -l
+#SBATCH -J microEUKscope
+#SBATCH --partition=
+#SBATCH --clusters=
+#SBATCH --qos=
+#SBATCH --nodes=
+#SBATCH --ntasks-per-node=
+#SBATCH --time=
+#SBATCH --mem=
+#SBATCH --array=
+...
+```
+
+And then submit directly:
+
+```bash
+sbatch microEUKscope.sbatch
+```
+
 **What happens**
 
 - `--array=1-N` creates N independent tasks
