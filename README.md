@@ -222,9 +222,7 @@ printf '%s\n' "Sample_A" > /tmp/one_sample.list SAMPLE_LIST=/tmp/one_sample.list
 
 microEUKscope produces a long list of outputs.
 
-For each ```SAMPLE```, the pipeline creates a per-sample work dir: ```${OUTPUT_DIR}/${SAMPLE}/```, cointaiing all intermediate FASTA files from Tiara/Kaiju/EukRep and Kaiju outputs. The final fasta file with microeukaryotic contigs is ```${SAMPLE}.08_tiara_kaiju_eukrep.euk-pool.fasta```.
-
-```${OUTPUT_DIR}/${SAMPLE}/ ${SAMPLE}.pipeline.run.log 08_tiara_kaiju_eukrep.euk-pool.fasta``` #final pool of contigs classified as microeukariotes
+For each ```SAMPLE```, the pipeline creates a per-sample work dir: ```${OUTPUT_DIR}/${SAMPLE}/```, cointaiing all intermediate FASTA files from Tiara/Kaiju/EukRep and Kaiju outputs. The final fasta file with all classified microeukaryotic contigs is ```${SAMPLE}.08_tiara_kaiju_eukrep.euk-pool.fasta```.
 
 A per-sample run log ```${SAMPLE}.pipeline.run.log``` is created.
 
