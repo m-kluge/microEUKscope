@@ -220,28 +220,17 @@ printf '%s\n' "Sample_A" > /tmp/one_sample.list SAMPLE_LIST=/tmp/one_sample.list
 
 ## 6) Outputs
 
-microEUKscope produces a long list of outputs. The most relevant ones are:
+microEUKscope produces a long list of outputs.
 
-```bash
-`${OUTPUT_DIR}/${SAMPLE}/   
-    ${SAMPLE}.pipeline.run.log   
-    08_tiara_kaiju_eukrep.euk-pool.fasta`
-    
-${STATS_DIR}/${SAMPLE}.pipeline.stats.tsv
+For each ```SAMPLE```, the pipeline creates a per-sample work dir: ```${OUTPUT_DIR}/${SAMPLE}/```, cointaiing all intermediate FASTA files from Tiara/Kaiju/EukRep and Kaiju outputs. The final fasta file with microeukaryotic contigs is ```${SAMPLE}.08_tiara_kaiju_eukrep.euk-pool.fasta```.
 
-${SUMMARY_DIR}/
-    08_tiara_kaiju_eukrep.euk-pool_summary.tsv # Kaiju phylum table
-    08_tiara_kaiju_eukrep.euk-pool.html # Krona HTML
-```
+```${OUTPUT_DIR}/${SAMPLE}/ ${SAMPLE}.pipeline.run.log 08_tiara_kaiju_eukrep.euk-pool.fasta``` #final pool of contigs classified as microeukariotes
 
-**Interpretation**
+A per-sample run log ```${SAMPLE}.pipeline.run.log``` is created.
 
-- The `*.euk-pool.fasta` is the _final_ filtered euk contig set.
-    
-- `run.log` for debugging.
-    
-- The stats TSV for downstream summarization/plotting.
-    
+Stats dir ```${STATS_DIR}/``` with single concatenated stats file per sample: ```${SAMPLE}.pipeline.stats.tsv``` contains seqkit stats for each generated fasta file.
+
+Summary dir: ```${SUMMARY_DIR}/``` with Krona HTML of the final euk pool ```${SAMPLE}.08_tiara_kaiju_eukrep.euk-pool.html``` and Kaiju summary TSV ```${SAMPLE}.08_tiara_kaiju_eukrep.euk-pool_summary.tsv```
 
 ---
 
@@ -320,6 +309,7 @@ On the STATS file you find:
 | `**${SAMPLE}.07_eukrep_balanced1000.euk.fasta**`                    | **(07)** EukRep euks predicted from unclassified (≥1000 bp) | **YES**               |
 | `**${SAMPLE}.08_tiara_kaiju_eukrep.euk-pool.fasta**`                | **(08)** Final euk pool                                     | **YES**               |
 | `**${SAMPLE}.09_euk_pool_only_${SLUG}.fasta**`                      | **(09, optional)** Taxonomy-filtered subset of (08)         | **YES (if enabled)**  |
+
 ## 7) Notes & troubleshooting
 
 **Absolute-path env (no conda activation needed):**
