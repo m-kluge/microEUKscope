@@ -103,7 +103,7 @@ To run microEUKscope, you need to configure it via a `config.env` file, which wi
 
 ### 3.1 Copy example configs 
 
-`cp config-example.env config.env`
+`cp config_example.env config.env`
 
 ### 3.2 What goes into `config.env`
 
