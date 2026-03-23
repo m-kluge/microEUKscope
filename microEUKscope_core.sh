@@ -44,10 +44,11 @@ export KAIJU_GREEDY_E="${KAIJU_GREEDY_E:-5}"
 export KAIJU_GREEDY_S="${KAIJU_GREEDY_S:-75}"
 export KAIJU_EVALUE="${KAIJU_EVALUE:-0.01}"   # 0.01 is default; use 1000000 for effectively no E-value filter (older Kaiju)
 
-# Optional step: taxa subset on final euk pool
+# Optional steps: taxa subset on final euk pool, prok pool
 export DO_TAXON_SUBSET="${DO_TAXON_SUBSET:-0}"       # 1=on, 0=off
 export TAXON_FILTERS="${TAXON_FILTERS:-Fungi}"       # e.g. "Fungi" or "Fungi Oomycota"
 export CASE_INSENSITIVE="${CASE_INSENSITIVE:-0}"     # 0=case-sensitive, set 1 for grep -i
+export MAKE_PROK_POOL="${MAKE_PROK_POOL:-0}"   # 1=on, 0=off
 
 # Ensure output dirs exist
 mkdir -p "${OUTPUT_DIR}" "${SUMMARY_DIR}" "${STATS_DIR}"
@@ -106,6 +107,45 @@ choose_input_contigs() {
     cp -f -- "$chosen" "$canon"
   fi
   echo "$canon"
+}
+
+write_final_prok_pool() {
+  local SAMPLE="$1"
+
+  local OUT="${SAMPLE}.10_final_prok_pool.fasta"
+  local TMP="${SAMPLE}.10_final_prok_pool.tmp.fasta"
+
+  : > "${TMP}"
+
+  # Tiara 3k prok outputs
+  for f in \
+    "archaea_${SAMPLE}.scaffolds.3k.fasta" \
+    "bacteria_${SAMPLE}.scaffolds.3k.fasta" \
+    "prokarya_${SAMPLE}.scaffolds.3k.fasta"
+  do
+    [[ -s "$f" ]] && cat -- "$f" >> "${TMP}"
+  done
+
+  # Greedy prok hits were called on .01_tiara_kaiju_merged.euk.fasta
+  if [[ -s "${SAMPLE}.prok_contigs_list_greedy.txt" && -s "${SAMPLE}.01_tiara_kaiju_merged.euk.fasta" ]]; then
+    seqkit grep -f "${SAMPLE}.prok_contigs_list_greedy.txt" \
+      "${SAMPLE}.01_tiara_kaiju_merged.euk.fasta" >> "${TMP}" || true
+  fi
+
+  # mem22 prok hits were called on .03_tiara_kaiju_merged.euk-novirus-noprok.fasta
+  if [[ -s "${SAMPLE}.prok_contigs_list_mem22.txt" && -s "${SAMPLE}.03_tiara_kaiju_merged.euk-novirus-noprok.fasta" ]]; then
+    seqkit grep -f "${SAMPLE}.prok_contigs_list_mem22.txt" \
+      "${SAMPLE}.03_tiara_kaiju_merged.euk-novirus-noprok.fasta" >> "${TMP}" || true
+  fi
+
+  # Deduplicate by contig ID/header
+  if [[ -s "${TMP}" ]]; then
+    seqkit rmdup -n "${TMP}" -o "${OUT}"
+  else
+    : > "${OUT}"
+  fi
+
+  rm -f "${TMP}"
 }
 
 ###############################################################################
@@ -392,6 +432,11 @@ process_sample() {
       "${SAMPLE}.08_tiara_kaiju_eukrep.euk-pool.fasta" > "${SAMPLE}.09_euk_pool_only_${SLUG}.fasta"
 
     seqkit stats -a "${SAMPLE}.09_euk_pool_only_${SLUG}.fasta" | sed '1d' >> "${STATS_DIR}/${SAMPLE}.pipeline.stats.tsv"
+  fi
+
+   # 7) OPTIONAL step: write final prok pool
+  if [[ "${MAKE_PROK_POOL}" -eq 1 ]]; then
+    write_final_prok_pool "${SAMPLE}"
   fi
 }
 
