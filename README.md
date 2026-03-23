@@ -1,8 +1,6 @@
-# microEUKscope
+# microEUKscope 
 
-A toolkit for microeukaryote metagenomics
- 
-The microEUKscope pipeline was developed to identify microeukaryotes from assemblies of metagenomic environmental samples. We have combined and benchmarked existing tools (TIARA, Kaiju, EukRep) to taxonomically annotate contigs, and generate a fasta file with the classified microeukaryotes. The user can also use this pipeline to retrieve the classified prokaryotic and viral sequences. 
+The microEUKscope pipeline was developed to identify microeukaryotes from assemblies of metagenomic datasets. We have combined and benchmarked existing tools (TIARA, Kaiju, EukRep) to taxonomically annotate contigs, and generate a fasta file with the classified microeukaryotes. The user can also use this pipeline to retrieve the classified prokaryotic sequences.
 
 The pipeline uses a customized nr+euk Kaiju database, which includes microeukaryotic groups ([https://doi.org/10.1016/j.tree.2019.08.008](https://doi.org/10.1016/j.tree.2019.08.008)) and the genomes available at JGI's Mycocosm and Phycocosm. This database is ready to download at Figshare (ADD project). Additionally, the user can use a number of scripts here provided to build and index its own Kaiju-compatible database.
 
@@ -32,7 +30,7 @@ You can do **(1)** without doing **(2)** if you already have a working Kaiju dat
 
 ### 2.1 Choose a location for the project in your cluster
 
-microEUKscope can use a lot of computational resources, so it is recommended to be run on a computer cluster. On a cluster you should **avoid putting Conda envs and packages in `$HOME`** (as it can easily exceed your quota + performance).  
+microEUKscope can use a lot of computational resources, so it is recommended to be run on a computer cluster. On a cluster you should **avoid putting Conda envs and packages in`$HOME`** (as it can easily exceed your quota + performance).  
 
 Instead you store them in your project space:
 
@@ -103,7 +101,7 @@ To run microEUKscope, you need to configure it via a `config.env` file, which wi
 
 ### 3.1 Copy example configs 
 
-`cp config_example.env config.env`
+`cp config-example.env config.env`
 
 ### 3.2 What goes into `config.env`
 
@@ -130,7 +128,7 @@ For running the microEUKscope pipeline, these are the **core variables** you mus
     `ENV_PREFIX=/path/to/conda/envs/microEUKscope`
     
 
-The remaining information on the config.env is **OPTIONAL** and can remain unchanged. It includes Kaiju/Tiara parameters (which users do not usually change) and a possibility to add an additional Kaiju final taxa subset of a desired taxonomic group.
+The remaining information on the config.env is **OPTIONAL** and can remain unchanged. It includes Kaiju/Tiara parameters (which users do not usually change), a possibility to add an additional Kaiju final taxa subset of a desired taxonomic group, and also create a final pool of all classified prokaryotes.
 
 ---
 ## 4) Sample list
@@ -173,28 +171,6 @@ sbatch \
 --ntasks=1 --cpus-per-task=20 \
 --chdir "$(pwd)" \
 microEUKscope.sbatch
-```
-
-You can also edit the header of the ```microEUKscope.sbatch``` to set the SBATCH flags of your cluster, for instance:
-
-```bash
-#!/bin/bash -l
-#SBATCH -J microEUKscope
-#SBATCH --partition=
-#SBATCH --clusters=
-#SBATCH --qos=
-#SBATCH --nodes=
-#SBATCH --ntasks-per-node=
-#SBATCH --time=
-#SBATCH --mem=
-#SBATCH --array=
-...
-```
-
-And then submit directly:
-
-```bash
-sbatch microEUKscope.sbatch
 ```
 
 **What happens**
@@ -242,15 +218,28 @@ printf '%s\n' "Sample_A" > /tmp/one_sample.list SAMPLE_LIST=/tmp/one_sample.list
 
 ## 6) Outputs
 
-microEUKscope produces a long list of outputs.
+microEUKscope produces a long list of outputs. The most relevant ones are:
 
-For each ```SAMPLE```, the pipeline creates a per-sample work dir: ```${OUTPUT_DIR}/${SAMPLE}/```, cointaiing all intermediate FASTA files from Tiara/Kaiju/EukRep and Kaiju outputs. The final fasta file with all classified microeukaryotic contigs is ```${SAMPLE}.08_tiara_kaiju_eukrep.euk-pool.fasta```.
+```bash
+`${OUTPUT_DIR}/${SAMPLE}/   
+    ${SAMPLE}.pipeline.run.log   
+    08_tiara_kaiju_eukrep.euk-pool.fasta`
+    
+${STATS_DIR}/${SAMPLE}.pipeline.stats.tsv
 
-A per-sample run log ```${SAMPLE}.pipeline.run.log``` is created.
+${SUMMARY_DIR}/
+    08_tiara_kaiju_eukrep.euk-pool_summary.tsv # Kaiju phylum table
+    08_tiara_kaiju_eukrep.euk-pool.html # Krona HTML
+```
 
-Stats dir ```${STATS_DIR}/``` with single concatenated stats file per sample: ```${SAMPLE}.pipeline.stats.tsv``` contains seqkit stats for each generated fasta file.
+**Interpretation**
 
-Summary dir: ```${SUMMARY_DIR}/``` with Krona HTML of the final euk pool ```${SAMPLE}.08_tiara_kaiju_eukrep.euk-pool.html``` and Kaiju summary TSV ```${SAMPLE}.08_tiara_kaiju_eukrep.euk-pool_summary.tsv```
+- The `*.euk-pool.fasta` is the _final_ filtered euk contig set.
+    
+- `run.log` for debugging.
+    
+- The stats TSV for downstream summarization/plotting.
+    
 
 ---
 
@@ -302,6 +291,7 @@ Here is a full list of the output files:
 | `${OUTPUT_DIR}/${SAMPLE}/${SAMPLE}.kaiju-greedy.for_${SLUG}.html`                             | (optional) Krona HTML for the subset run                                        |
 | `${OUTPUT_DIR}/${SAMPLE}/${SAMPLE}.for_${SLUG}.names`                                         | (optional) Subset run with taxon names                                          |
 | `${OUTPUT_DIR}/${SAMPLE}/${SAMPLE}.${SLUG}_contigs_list.txt`                                  | (optional) Contig IDs that match `TAXON_FILTERS`.                               |
+| ```${OUTPUT_DIR}/${SAMPLE}/${SAMPLE}.10_final_prok_pool.fasta```                              | (optional) Prokaryote pool recovered during the pipeline                        |
 
 On the STATS file you find:
 
@@ -320,15 +310,25 @@ On the STATS file you find:
 | `${SAMPLE}.tiara_S1000.non-euk.fasta`                               | Tiara non-euk pool from S1000 bin                           | **NO**                |
 | `${SAMPLE}.tiara_merged.euk.fasta`                                  | Tiara euks merged across tiers                              | **YES**               |
 | `${SAMPLE}.tiara_merged_small_contigs.non-euk.fasta`                | S500+S1000 bins non-euks merged                             | **YES**               |
-| `**${SAMPLE}.01_tiara_kaiju_merged.euk.fasta**`                     | **(01)** Tiara ≥3k euks + Kaiju-rescued S500+S1000 euks     | **YES**               |
-| `**${SAMPLE}.02_tiara_kaiju_merged.euk-novirus.fasta**`             | **(02)** (01) without viral contigs                         | **YES**               |
-| `**${SAMPLE}.03_tiara_kaiju_merged.euk-novirus-noprok.fasta**`      | **(03)** (02) without prok contigs (greedy pass)            | **YES**               |
-| `**${SAMPLE}.04_tiara_kaiju_merged.euk-clean.fasta**`               | **(04)** (03) cleaned with mem22 prok list                  | **YES**               |
-| `**${SAMPLE}.05_tiara_kaiju_unclassified.fasta**`                   | **(05)** Unclassified contigs extracted from greedy         | **YES**               |
-| `**${SAMPLE}.06_tiara_kaiju_merged.euk-clean_noU.fasta**`           | **(06)** Clean euks with unclassified removed               | **YES**               |
-| `**${SAMPLE}.07_eukrep_balanced1000.euk.fasta**`                    | **(07)** EukRep euks predicted from unclassified (≥1000 bp) | **YES**               |
-| `**${SAMPLE}.08_tiara_kaiju_eukrep.euk-pool.fasta**`                | **(08)** Final euk pool                                     | **YES**               |
-| `**${SAMPLE}.09_euk_pool_only_${SLUG}.fasta**`                      | **(09, optional)** Taxonomy-filtered subset of (08)         | **YES (if enabled)**  |
+| **`${SAMPLE}.01_tiara_kaiju_merged.euk.fasta`**                     | **(01)** Tiara ≥3k euks + Kaiju-rescued S500+S1000 euks     | **YES**               |
+| **`${SAMPLE}.02_tiara_kaiju_merged.euk-novirus.fasta`**             | **(02)** (01) without viral contigs                         | **YES**               |
+| **`${SAMPLE}.03_tiara_kaiju_merged.euk-novirus-noprok.fasta`**      | **(03)** (02) without prok contigs (greedy pass)            | **YES**               |
+| **`${SAMPLE}.04_tiara_kaiju_merged.euk-clean.fasta`**               | **(04)** (03) cleaned with mem22 prok list                  | **YES**               |
+| **`${SAMPLE}.05_tiara_kaiju_unclassified.fasta`**                   | **(05)** Unclassified contigs extracted from greedy         | **YES**               |
+| **`${SAMPLE}.06_tiara_kaiju_merged.euk-clean_noU.fasta`**           | **(06)** Clean euks with unclassified removed               | **YES**               |
+| **`${SAMPLE}.07_eukrep_balanced1000.euk.fasta`**                    | **(07)** EukRep euks predicted from unclassified (≥1000 bp) | **YES**               |
+| **`${SAMPLE}.08_tiara_kaiju_eukrep.euk-pool.fasta`**                | **(08)** Final euk pool                                     | **YES**               |
+| **`${SAMPLE}.09_euk_pool_only_${SLUG}.fasta`**                      | **(09, optional)** Taxonomy-filtered subset of (08)         | **YES (if enabled)**  |
+| **```${SAMPLE}.10_final_prok_pool.fasta```**                        | **(10, optional)** Prok pool recovered during the pipeline  | **YES (if enabled)**  |
+#### Useful downstream files for custom taxonomic summaries
+
+In addition to the final FASTA output, some of the most useful files for downstream analyses are the **Kaiju classification outputs associated with the final eukaryotic pool**:
+
+- `${OUTPUT_DIR}/${SAMPLE}/${SAMPLE}.08_tiara_kaiju_eukrep.euk-pool.fasta.out`  
+    Kaiju output for the final eukaryotic pool (`08`). This file can be used for downstream summarization at different taxonomic ranks (as it was done for `${SAMPLE}.08_tiara_kaiju_eukrep.euk-pool_summary.tsv`) and to recover contigs belonging to specific taxonomic groups. Please refer to Kaiju manual for instructions.
+    
+- `${SUMMARY_DIR}/${SAMPLE}.08_tiara_kaiju_eukrep.euk-pool.html`  
+    Krona HTML file for interactive exploration of the taxonomy assigned to the final pool.
 
 ## 7) Notes & troubleshooting
 
@@ -378,6 +378,7 @@ If you use **microEUKscope** in your work, please cite:
   DOI: <ZENODO DOI or journal DOI when available>
 
 In addition, please cite the third-party tools used by this pipeline (e.g., Kaiju, Tiara, EukRep) according to their respective documentation.
+
 
 
 
